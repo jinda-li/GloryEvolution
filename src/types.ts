@@ -19,6 +19,7 @@ export type AppSettings = {
   historyEnabled: boolean;
   launchAtLogin: boolean;
   onboarded: boolean;
+  uiLanguage: string;
 };
 
 export type RecordingStatus = "idle" | "recording" | "processing" | "done" | "error" | "failed" | "preview";

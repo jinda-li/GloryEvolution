@@ -3,6 +3,7 @@ import { Check, Copy, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { TRANSLATE_LANGUAGES } from "../constants";
+import { useT } from "../i18n";
 import type { HistoryEntry, HistoryStore } from "../types";
 import { formatTime } from "../utils/format";
 
@@ -14,6 +15,7 @@ type HistoryViewProps = {
 export function HistoryView({ history, onHistoryChange }: HistoryViewProps) {
   const [query, setQuery] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const t = useT();
 
   const entries = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -43,13 +45,13 @@ export function HistoryView({ history, onHistoryChange }: HistoryViewProps) {
     <section className="page history">
       <div className="page-head">
         <div>
-          <h1>历史记录</h1>
-          <p className="muted">最近 500 条语音输入，只保存在本机。</p>
+          <h1>{t("history.title")}</h1>
+          <p className="muted">{t("history.subtitle")}</p>
         </div>
         <div className="page-head-actions">
           <label className="search">
             <Search size={15} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("history.search")} />
           </label>
           <button
             type="button"
@@ -58,14 +60,14 @@ export function HistoryView({ history, onHistoryChange }: HistoryViewProps) {
             onClick={() => void clearAll()}
           >
             <Trash2 size={15} />
-            {confirmClear ? "再点一次确认清空" : "清空"}
+            {confirmClear ? t("history.confirmClear") : t("history.clear")}
           </button>
         </div>
       </div>
 
       {entries.length === 0 ? (
         <div className="card empty-state">
-          {history.entries.length === 0 ? "还没有历史记录。" : "没有匹配的记录。"}
+          {history.entries.length === 0 ? t("history.empty") : t("history.noMatch")}
         </div>
       ) : (
         <ul className="history-list">
@@ -81,6 +83,7 @@ export function HistoryView({ history, onHistoryChange }: HistoryViewProps) {
 function HistoryItem({ entry, onDelete }: { entry: HistoryEntry; onDelete: () => void }) {
   const [copied, setCopied] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const t = useT();
 
   async function copy() {
     await invoke("copy_text", { text: showRaw ? entry.rawText : entry.text });
@@ -91,19 +94,33 @@ function HistoryItem({ entry, onDelete }: { entry: HistoryEntry; onDelete: () =>
   return (
     <li className="card history-item">
       <div className="history-meta">
-        <span>{formatTime(entry.createdAt)}</span>
-        <span>{Math.round(entry.durationSeconds)} 秒</span>
-        {entry.translatedTo ? <span className="history-tag">翻译 · {languageLabel(entry.translatedTo)}</span> : null}
+        <span>{formatTime(entry.createdAt, t)}</span>
+        <span>{t("time.seconds", { s: Math.round(entry.durationSeconds) })}</span>
+        {entry.translatedTo ? (
+          <span className="history-tag">{t("history.translatedTo", { lang: languageLabel(entry.translatedTo) })}</span>
+        ) : null}
         {entry.polished && entry.rawText !== entry.text ? (
           <button type="button" className="link-button" onClick={() => setShowRaw((value) => !value)}>
-            {showRaw ? "看润色结果" : "看识别原文"}
+            {showRaw ? t("history.showPolished") : t("history.showRaw")}
           </button>
         ) : null}
         <span className="spacer" />
-        <button type="button" className="icon-button" aria-label="复制" title="复制" onClick={() => void copy()}>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={t("common.copy")}
+          title={t("common.copy")}
+          onClick={() => void copy()}
+        >
           {copied ? <Check size={15} /> : <Copy size={15} />}
         </button>
-        <button type="button" className="icon-button" aria-label="删除" title="删除" onClick={onDelete}>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={t("common.delete")}
+          title={t("common.delete")}
+          onClick={onDelete}
+        >
           <Trash2 size={15} />
         </button>
       </div>

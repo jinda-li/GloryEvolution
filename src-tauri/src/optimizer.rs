@@ -3,7 +3,12 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{api, settings::AppSettings, AppError, AppResult};
+use crate::{
+    api,
+    i18n::{self, tr, Locale},
+    settings::{self, AppSettings},
+    AppError, AppResult,
+};
 
 /// Below this length a short polish is just filler removal, not truncation.
 const MIN_CHARS_FOR_SHRINK_CHECK: usize = 400;
@@ -37,12 +42,17 @@ struct ChatChoiceMessage {
 }
 
 pub async fn optimize(raw_text: &str, settings: &AppSettings) -> AppResult<String> {
-    let text = complete(settings.system_prompt.trim().to_string(), raw_text, settings).await?;
+    let mut system_prompt = settings.system_prompt.trim().to_string();
+    if i18n::current() == Locale::ZhTw && system_prompt == settings::default_system_prompt().trim() {
+        // The built-in prompt asks for Simplified Chinese; Traditional users want the opposite.
+        system_prompt = system_prompt.replace(settings::SIMPLIFIED_RULE, settings::TRADITIONAL_RULE);
+    }
+    let text = complete(system_prompt, raw_text, settings).await?;
     let raw_chars = raw_text.trim().chars().count();
     if raw_chars >= MIN_CHARS_FOR_SHRINK_CHECK
         && (text.chars().count() as f32) < raw_chars as f32 * MIN_KEPT_RATIO
     {
-        return Err(AppError::Api("润色结果明显短于原文，可能丢了内容".to_string()));
+        return Err(AppError::Api(tr(&i18n::POLISH_SHRUNK).to_string()));
     }
     Ok(text)
 }
@@ -64,7 +74,24 @@ pub async fn translate(raw_text: &str, target_language: &str, settings: &AppSett
     complete(system_prompt, raw_text, settings).await
 }
 
-pub fn language_name(code: &str) -> String {
+/// The language's own name, for UI text shown in any locale.
+pub fn language_endonym(code: &str) -> &str {
+    match code.trim() {
+        "en" => "English",
+        "zh" => "简体中文",
+        "zh-TW" => "繁體中文",
+        "ja" => "日本語",
+        "ko" => "한국어",
+        "fr" => "Français",
+        "de" => "Deutsch",
+        "es" => "Español",
+        "ru" => "Русский",
+        other => other,
+    }
+}
+
+/// Name used inside the (Chinese) translation prompt.
+fn language_name(code: &str) -> String {
     match code.trim() {
         "en" => "英文",
         "zh" => "简体中文",
@@ -131,12 +158,12 @@ async fn complete(mut system_prompt: String, raw_text: &str, settings: &AppSetti
     })
     .await?;
 
-    let payload: ChatResponse = api::parse_json(response, "文本润色").await?;
+    let payload: ChatResponse = api::parse_json(response, tr(&i18n::STAGE_POLISH)).await?;
     let Some(choice) = payload.choices.into_iter().next() else {
         return Ok(String::new());
     };
     if choice.finish_reason.as_deref() == Some("length") {
-        return Err(AppError::Api("模型输出被截断".to_string()));
+        return Err(AppError::Api(tr(&i18n::OUTPUT_TRUNCATED).to_string()));
     }
     Ok(choice
         .message

@@ -15,7 +15,10 @@ use cpal::{
 };
 use hound::{SampleFormat as WavSampleFormat, WavSpec, WavWriter};
 
-use crate::{AppError, AppResult};
+use crate::{
+    i18n::{self, tr, trf},
+    AppError, AppResult,
+};
 
 /// Speech models are trained on 16 kHz mono; sending that instead of the
 /// device's native 48 kHz stereo cuts the upload ~6x.
@@ -72,7 +75,7 @@ impl RecordingSession {
         let captured = self
             .handle
             .join()
-            .map_err(|_| AppError::Audio("录音线程异常退出。".to_string()))?;
+            .map_err(|_| AppError::Audio(tr(&i18n::AUDIO_THREAD_EXITED).to_string()))?;
         let duration_seconds = captured.samples.len() as f64 / TARGET_SAMPLE_RATE as f64;
         Ok(StoppedRecording {
             samples: captured.samples,
@@ -103,7 +106,7 @@ pub fn start(
         .spawn(move || {
             run_capture(&device_name, level_callback, notice_callback, ready_tx, stop_rx)
         })
-        .map_err(|error| AppError::Audio(format!("无法启动录音线程：{error}")))?;
+        .map_err(|error| AppError::Audio(trf(&i18n::AUDIO_THREAD_SPAWN, &[&error])))?;
 
     match ready_rx.recv() {
         Ok(Ok(())) => Ok(RecordingSession {
@@ -117,7 +120,7 @@ pub fn start(
         }
         Err(_) => {
             let _ = handle.join();
-            Err(AppError::Audio("录音线程启动失败。".to_string()))
+            Err(AppError::Audio(tr(&i18n::AUDIO_START_FAILED).to_string()))
         }
     }
 }
@@ -208,7 +211,7 @@ fn open_stream(
         Some(device) => device,
         None => {
             return Err(AppError::Audio(
-                "没有找到可用的麦克风，请检查设备连接和系统麦克风权限。".to_string(),
+                tr(&i18n::NO_MIC).to_string(),
             ))
         }
     };
@@ -234,8 +237,9 @@ fn open_stream(
         SampleFormat::U64 => build!(u64),
         SampleFormat::F32 => build!(f32),
         SampleFormat::F64 => build!(f64),
-        sample => Err(AppError::Audio(format!(
-            "暂不支持当前麦克风采样格式：{sample:?}"
+        sample => Err(AppError::Audio(trf(
+            &i18n::UNSUPPORTED_FORMAT,
+            &[&format!("{sample:?}")],
         ))),
     }
 }

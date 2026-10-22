@@ -4,7 +4,12 @@ use reqwest::multipart;
 use serde::Deserialize;
 use tokio::sync::Semaphore;
 
-use crate::{api, audio, settings::AppSettings, AppError, AppResult};
+use crate::{
+    api, audio,
+    i18n::{self, tr, trf},
+    settings::AppSettings,
+    AppError, AppResult,
+};
 
 /// Segments of one long take are transcribed side by side, but not so many
 /// at once that a slow uplink times every upload out.
@@ -50,7 +55,7 @@ pub async fn transcribe(
     for (index, handle) in handles.into_iter().enumerate() {
         let text = handle
             .await
-            .map_err(|error| AppError::Api(format!("语音识别任务异常：{error}")))??;
+            .map_err(|error| AppError::Api(trf(&i18n::STT_TASK_FAILED, &[&error])))??;
         on_segment_done(index + 1, total);
         parts.push(text);
     }
@@ -85,7 +90,7 @@ async fn transcribe_wav(wav: Vec<u8>, settings: &AppSettings) -> AppResult<Strin
     })
     .await?;
 
-    let payload: TranscriptionResponse = api::parse_json(response, "语音识别").await?;
+    let payload: TranscriptionResponse = api::parse_json(response, tr(&i18n::STAGE_STT)).await?;
     Ok(payload.text.trim().to_string())
 }
 
