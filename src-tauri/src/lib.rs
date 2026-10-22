@@ -45,7 +45,7 @@ const MIN_RECORDING_SECONDS: f64 = 0.4;
 /// RMS below this across the whole take means the mic heard nothing.
 const SILENCE_PEAK: f32 = 0.004;
 const AUTOSTART_FLAG: &str = "--minimized";
-const TRAY_ID: &str = "sayso";
+const TRAY_ID: &str = "gloryevolution";
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -856,7 +856,6 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            settings::migrate_legacy_data(app.handle());
             let settings = settings::load(app.handle()).unwrap_or_default();
             i18n::apply_setting(&settings.ui_language);
             setup_tray(app.handle())?;
@@ -902,7 +901,7 @@ pub fn run() {
             hide_recorder
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Sayso");
+        .expect("error while running GloryEvolution");
 }
 
 fn build_tray_menu(app: &AppHandle) -> AppResult<Menu<tauri::Wry>> {

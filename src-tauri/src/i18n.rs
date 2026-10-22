@@ -581,12 +581,12 @@ pub const CANCELLED: Msg = Msg([
 pub const TRAY_SHOW: Msg = Msg([
     "打开主界面",
     "開啟主視窗",
-    "Open Sayso",
+    "Open GloryEvolution",
     "メイン画面を開く",
     "메인 창 열기",
-    "Abrir Sayso",
-    "Ouvrir Sayso",
-    "Sayso öffnen",
+    "Abrir GloryEvolution",
+    "Ouvrir GloryEvolution",
+    "GloryEvolution öffnen",
 ]);
 
 pub const TRAY_TOGGLE: Msg = Msg([
@@ -605,14 +605,14 @@ pub const TRAY_QUIT: Msg = Msg([
 ]);
 
 pub const TRAY_TOOLTIP: Msg = Msg([
-    "Sayso 语音输入",
-    "Sayso 語音輸入",
-    "Sayso voice typing",
-    "Sayso 音声入力",
-    "Sayso 음성 입력",
-    "Sayso: dictado por voz",
-    "Sayso – dictée vocale",
-    "Sayso Spracheingabe",
+    "光荣进化语音输入",
+    "光榮進化語音輸入",
+    "GloryEvolution voice typing",
+    "GloryEvolution 音声入力",
+    "GloryEvolution 음성 입력",
+    "GloryEvolution: dictado por voz",
+    "GloryEvolution – dictée vocale",
+    "GloryEvolution Spracheingabe",
 ]);
 
 // ---------------------------------------------------------------------------

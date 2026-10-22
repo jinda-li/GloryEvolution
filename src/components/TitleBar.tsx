@@ -12,7 +12,7 @@ export function TitleBar() {
     <header className="titlebar" data-tauri-drag-region>
       <div className="titlebar-brand" data-tauri-drag-region>
         <img className="brand-mark" src={logo} alt="" aria-hidden="true" data-tauri-drag-region />
-        <span data-tauri-drag-region>Sayso</span>
+        <span data-tauri-drag-region>{t("app.name")}</span>
       </div>
       <div className="titlebar-actions">
         <button

@@ -9,10 +9,10 @@ const zhTW: Messages = {
   "titlebar.close": "關閉到系統匣",
   "titlebar.closeHint": "關閉到系統匣（快速鍵仍可使用）",
 
-  "onboarding.eyebrow": "歡迎使用 Sayso",
+  "onboarding.eyebrow": "歡迎使用光榮進化",
   "onboarding.title": "開口說話，文字就出現在游標處",
   "onboarding.intro":
-    "在任何應用程式裡按下快速鍵開始說話，再按一次結束。Sayso 會辨識語音、去掉口頭禪和重複，潤飾後直接輸入到目前的輸入框。",
+    "在任何應用程式裡按下快速鍵開始說話，再按一次結束。光榮進化會辨識語音、去掉口頭禪和重複，潤飾後直接輸入到目前的輸入框。",
   "onboarding.step1.title": "準備 OpenRouter API Key",
   "onboarding.step1.body": "在 openrouter.ai 註冊並儲值少量餘額（$5 通常夠用好幾個月），建立一組 Key。",
   "onboarding.step2.title": "貼上 Key 並測試",
@@ -161,6 +161,7 @@ const zhTW: Messages = {
   "settings.translateKey": "快速鍵",
   "settings.translateKeyHint": "不能和錄音快速鍵相同。",
   "settings.translateTarget": "翻譯成",
+  "app.name": "光榮進化",
 };
 
 export default zhTW;

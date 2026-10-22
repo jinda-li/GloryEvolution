@@ -9,10 +9,10 @@ const fr: Messages = {
   "titlebar.close": "Fermer dans la zone de notification",
   "titlebar.closeHint": "Fermer dans la zone de notification (le raccourci reste actif)",
 
-  "onboarding.eyebrow": "Bienvenue dans Sayso",
+  "onboarding.eyebrow": "Bienvenue dans GloryEvolution",
   "onboarding.title": "Parlez, et le texte apparaît sous votre curseur",
   "onboarding.intro":
-    "Appuyez sur le raccourci dans n'importe quelle app, parlez, puis appuyez à nouveau. Sayso transcrit votre voix, retire les « euh » et les répétitions, puis tape le texte soigné là où vous travaillez.",
+    "Appuyez sur le raccourci dans n'importe quelle app, parlez, puis appuyez à nouveau. GloryEvolution transcrit votre voix, retire les « euh » et les répétitions, puis tape le texte soigné là où vous travaillez.",
   "onboarding.step1.title": "Obtenez une clé API OpenRouter",
   "onboarding.step1.body":
     "Inscrivez-vous sur openrouter.ai, ajoutez un peu de crédit (5 $ suffisent souvent pour des mois) et créez une clé.",
@@ -169,6 +169,7 @@ const fr: Messages = {
   "settings.translateKey": "Raccourci",
   "settings.translateKeyHint": "Doit différer du raccourci d'enregistrement.",
   "settings.translateTarget": "Traduire en",
+  "app.name": "GloryEvolution",
 };
 
 export default fr;

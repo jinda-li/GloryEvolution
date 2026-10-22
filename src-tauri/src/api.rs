@@ -19,7 +19,7 @@ pub fn client() -> &'static reqwest::Client {
             .timeout(Duration::from_secs(120))
             .pool_idle_timeout(Duration::from_secs(90))
             .tcp_keepalive(Duration::from_secs(30))
-            .user_agent(concat!("Sayso/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("GloryEvolution/", env!("CARGO_PKG_VERSION")))
             .build()
             .expect("failed to build HTTP client")
     })
@@ -29,8 +29,8 @@ pub fn authorized(builder: RequestBuilder, settings: &AppSettings) -> RequestBui
     let mut builder = builder.bearer_auth(settings.api_key.trim());
     if settings.is_openrouter() {
         builder = builder
-            .header("HTTP-Referer", "https://github.com/jinda-li/Sayso")
-            .header("X-Title", "Sayso");
+            .header("HTTP-Referer", "https://github.com/jinda-li/GloryEvolution")
+            .header("X-Title", "GloryEvolution");
     }
     builder
 }

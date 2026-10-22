@@ -8,10 +8,10 @@ const en = {
   "titlebar.close": "Close to tray",
   "titlebar.closeHint": "Close to tray (the shortcut keeps working)",
 
-  "onboarding.eyebrow": "Welcome to Sayso",
+  "onboarding.eyebrow": "Welcome to GloryEvolution",
   "onboarding.title": "Speak, and the words appear at your cursor",
   "onboarding.intro":
-    "Press the shortcut in any app, talk, then press it again. Sayso transcribes your voice, drops the ums and repeats, and types the polished text right where you're working.",
+    "Press the shortcut in any app, talk, then press it again. GloryEvolution transcribes your voice, drops the ums and repeats, and types the polished text right where you're working.",
   "onboarding.step1.title": "Get an OpenRouter API key",
   "onboarding.step1.body":
     "Sign up at openrouter.ai, add a little credit ($5 usually lasts for months), and create a key.",
@@ -163,6 +163,7 @@ const en = {
   "settings.translateKey": "Shortcut",
   "settings.translateKeyHint": "Must differ from the recording shortcut.",
   "settings.translateTarget": "Translate into",
+  "app.name": "GloryEvolution",
 };
 
 export default en;

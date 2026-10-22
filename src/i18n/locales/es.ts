@@ -9,10 +9,10 @@ const es: Messages = {
   "titlebar.close": "Cerrar a la bandeja",
   "titlebar.closeHint": "Cerrar a la bandeja (el atajo sigue funcionando)",
 
-  "onboarding.eyebrow": "Te damos la bienvenida a Sayso",
+  "onboarding.eyebrow": "Te damos la bienvenida a GloryEvolution",
   "onboarding.title": "Habla y las palabras aparecen donde está el cursor",
   "onboarding.intro":
-    "Pulsa el atajo en cualquier app, habla y vuelve a pulsarlo. Sayso transcribe tu voz, quita las muletillas y repeticiones, y escribe el texto pulido justo donde estás trabajando.",
+    "Pulsa el atajo en cualquier app, habla y vuelve a pulsarlo. GloryEvolution transcribe tu voz, quita las muletillas y repeticiones, y escribe el texto pulido justo donde estás trabajando.",
   "onboarding.step1.title": "Consigue una clave de API de OpenRouter",
   "onboarding.step1.body":
     "Regístrate en openrouter.ai, añade un poco de saldo ($5 suelen durar meses) y crea una clave.",
@@ -165,6 +165,7 @@ const es: Messages = {
   "settings.translateKey": "Atajo",
   "settings.translateKeyHint": "Debe ser distinto del atajo de grabación.",
   "settings.translateTarget": "Traducir al",
+  "app.name": "GloryEvolution",
 };
 
 export default es;

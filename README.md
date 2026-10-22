@@ -1,32 +1,32 @@
 <div align="center">
 
-<img src="docs/assets/logo.svg" width="112" alt="Sayso logo" />
+<img src="docs/assets/logo.svg" width="112" alt="GloryEvolution logo" />
 
-# Sayso
+# GloryEvolution
 
-**Just say so.** Press a hotkey, speak, and clean, polished text appears at your cursor, in any Windows app.
+**Speak, and let your words evolve.** Press a hotkey, speak, and clean, polished text appears at your cursor, in any Windows app.
 
-Free and open source (MIT). **Bring your own [OpenRouter](https://openrouter.ai) key**: no Sayso account, no subscription, you only pay OpenRouter for what you use.
+Free and open source (MIT). **Bring your own [OpenRouter](https://openrouter.ai) key**: no GloryEvolution account, no subscription, you only pay OpenRouter for what you use.
 
-[![Latest release](https://img.shields.io/github/v/release/jinda-li/Sayso?label=release&color=2f8f7f)](https://github.com/jinda-li/Sayso/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/jinda-li/Sayso/total?color=2f8f7f)](https://github.com/jinda-li/Sayso/releases)
+[![Latest release](https://img.shields.io/github/v/release/jinda-li/GloryEvolution?label=release&color=2f8f7f)](https://github.com/jinda-li/GloryEvolution/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/jinda-li/GloryEvolution/total?color=2f8f7f)](https://github.com/jinda-li/GloryEvolution/releases)
 ![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%7C%2011-2f8f7f?logo=windows)
 ![8 languages](https://img.shields.io/badge/UI-8%20languages-e08a45)
-[![MIT license](https://img.shields.io/github/license/jinda-li/Sayso?color=2f8f7f)](LICENSE)
+[![MIT license](https://img.shields.io/github/license/jinda-li/GloryEvolution?color=2f8f7f)](LICENSE)
 
-<a href="https://github.com/jinda-li/Sayso/releases/latest"><img src="https://img.shields.io/badge/Download%20for%20Windows-Sayso%200.3.0-2f8f7f?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" height="44" /></a>
+<a href="https://github.com/jinda-li/GloryEvolution/releases/latest"><img src="https://img.shields.io/badge/Download%20for%20Windows-GloryEvolution%200.3.0-2f8f7f?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" height="44" /></a>
 
 **English** · [简体中文](README.zh-CN.md)
 
 <br />
 
-<img src="docs/assets/demo-en.gif" width="880" alt="Press Alt+Q, say 'um so can we move the design review to Thursday at three, no wait, four', and Sayso types 'Can we move the design review to Thursday at 4?'" />
+<img src="docs/assets/demo-en.gif" width="880" alt="Press Alt+Q, say 'um so can we move the design review to Thursday at three, no wait, four', and GloryEvolution types 'Can we move the design review to Thursday at 4?'" />
 
 </div>
 
 ## Talk the way you think. Get the text you meant.
 
-You ramble, backtrack and say "um". Sayso keeps what you meant and drops the rest, then types it straight into Slack, Word, your browser, your IDE, anywhere with a cursor.
+You ramble, backtrack and say "um". GloryEvolution keeps what you meant and drops the rest, then types it straight into Slack, Word, your browser, your IDE, anywhere with a cursor.
 
 | | |
 |---|---|
@@ -39,7 +39,7 @@ You ramble, backtrack and say "um". Sayso keeps what you meant and drops the res
 | **Nothing lost** | If transcription fails, the audio stays in memory and the pill offers one-click retry (also in the tray menu). If polishing fails, you still get the raw transcript. No text field focused? A floating pill offers one-click copy. |
 | **See your habit** | The home page shows your current and longest streak, active days and a 20-week activity heatmap. |
 | **Private by default** | Audio stays in memory and is never written to disk. History lives only on your PC, and you can turn it off. |
-| **Your own OpenRouter account** | Sayso has no servers and no subscription. It calls OpenRouter directly with *your* API key, billed pay-as-you-go to *your* OpenRouter credit: usually well under **$0.01 per minute** of dictation. |
+| **Your own OpenRouter account** | GloryEvolution has no servers and no subscription. It calls OpenRouter directly with *your* API key, billed pay-as-you-go to *your* OpenRouter credit: usually well under **$0.01 per minute** of dictation. |
 
 ## Screenshots
 
@@ -84,15 +84,15 @@ Light and dark themes follow Windows automatically.
 
 The interface is available in **English, 简体中文, 繁體中文, 日本語, 한국어, Español, Français and Deutsch**, and follows your Windows language out of the box (switch any time in Settings). Speech recognition itself handles dozens of languages, including mixed-language speech.
 
-<img src="docs/assets/languages.png" alt="Sayso home screen in eight languages" />
+<img src="docs/assets/languages.png" alt="GloryEvolution home screen in eight languages" />
 
 ## Get started in 60 seconds
 
-You need your own OpenRouter account with a little credit. Sayso itself is free.
+You need your own OpenRouter account with a little credit. GloryEvolution itself is free.
 
-1. **Download** `Sayso_0.3.0_x64-setup.exe` from the [latest release](https://github.com/jinda-li/Sayso/releases/latest) and run it. No admin rights needed. Prefer no installer? Grab the portable `.zip` instead.
+1. **Download** `GloryEvolution_0.3.0_x64-setup.exe` from the [latest release](https://github.com/jinda-li/GloryEvolution/releases/latest) and run it. No admin rights needed. Prefer no installer? Grab the portable `.zip` instead.
 2. **Create a key** at [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) and add a few dollars of credit.
-3. **Paste the key** into Sayso, click **Test connection**, then **Get started**.
+3. **Paste the key** into GloryEvolution, click **Test connection**, then **Get started**.
 4. Click into any text field and press **`Alt+Q`**. Talk. Press it again.
 
 > [!NOTE]
@@ -104,7 +104,7 @@ You need your own OpenRouter account with a little credit. Sayso itself is free.
 Alt+Q ──▶ 16 kHz mic capture (in memory) ──▶ speech-to-text ──▶ polish with an LLM ──▶ typed at your cursor
 ```
 
-Everything runs on your own [OpenRouter](https://openrouter.ai) key. Audio and text go straight from your PC to OpenRouter; there is no Sayso server in between, and usage shows up on your OpenRouter dashboard.
+Everything runs on your own [OpenRouter](https://openrouter.ai) key. Audio and text go straight from your PC to OpenRouter; there is no GloryEvolution server in between, and usage shows up on your OpenRouter dashboard.
 
 - **Speech-to-text** via `/api/v1/audio/transcriptions`. Default `openai/gpt-4o-mini-transcribe`; Qwen3 ASR, Whisper, Gemini, Voxtral and Deepgram are one click away.
 - **Polishing** via `/api/v1/chat/completions`. Default `google/gemini-3.1-flash-lite` (about half a second); Claude Haiku, GPT-4.1 mini and Qwen are also built in, or type any model id.
@@ -121,13 +121,7 @@ The installer is not code-signed yet. Click **More info** then **Run anyway**. T
 <details>
 <summary><b>Where is my data?</b></summary>
 
-Settings are in `%APPDATA%\com.sayso.desktop\settings.json` and history in `history.json` next to it. Audio is only held in memory and sent to the speech model you choose; nothing else leaves your PC.
-</details>
-
-<details>
-<summary><b>I used GloriousEvolution before.</b></summary>
-
-Sayso is the same app with a new name. On first launch it copies your key, settings and history over automatically. You can then uninstall GloriousEvolution from Windows Settings.
+Settings are in `%APPDATA%\com.gloryevolution.desktop\settings.json` and history in `history.json` next to it. Audio is only held in memory and sent to the speech model you choose; nothing else leaves your PC.
 </details>
 
 <details>

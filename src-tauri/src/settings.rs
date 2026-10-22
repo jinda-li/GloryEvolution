@@ -161,27 +161,6 @@ pub fn save(app: &AppHandle, settings: &AppSettings) -> AppResult<()> {
     Ok(())
 }
 
-/// 0.2.x shipped as GloriousEvolution under another identifier. Copy its
-/// settings and history over once so upgrading keeps the key and stats.
-const LEGACY_IDENTIFIER: &str = "com.glorious.evolution";
-
-pub fn migrate_legacy_data(app: &AppHandle) {
-    let dirs = [
-        (app.path().app_config_dir(), "settings.json"),
-        (app.path().app_data_dir(), "history.json"),
-    ];
-    for (dir, file) in dirs {
-        let Ok(dir) = dir else { continue };
-        let target = dir.join(file);
-        let Some(legacy) = dir.parent().map(|parent| parent.join(LEGACY_IDENTIFIER).join(file)) else {
-            continue;
-        };
-        if !target.exists() && legacy.exists() && fs::create_dir_all(&dir).is_ok() {
-            let _ = fs::copy(legacy, target);
-        }
-    }
-}
-
 fn settings_path(app: &AppHandle) -> AppResult<PathBuf> {
     let dir = app.path().app_config_dir()?;
     Ok(dir.join("settings.json"))

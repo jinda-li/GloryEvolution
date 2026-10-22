@@ -1,13 +1,13 @@
 [package]
-name = "sayso"
+name = "glory-evolution"
 version = "0.3.0"
-description = "Sayso: voice typing for any Windows app, powered by OpenRouter."
+description = "GloryEvolution: voice typing for any Windows app, powered by OpenRouter."
 authors = ["Jinda Li"]
 license = "MIT"
 edition = "2021"
 
 [lib]
-name = "sayso_lib"
+name = "glory_evolution_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

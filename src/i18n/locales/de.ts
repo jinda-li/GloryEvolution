@@ -9,10 +9,10 @@ const de: Messages = {
   "titlebar.close": "In den Infobereich schließen",
   "titlebar.closeHint": "In den Infobereich schließen (das Tastenkürzel funktioniert weiter)",
 
-  "onboarding.eyebrow": "Willkommen bei Sayso",
+  "onboarding.eyebrow": "Willkommen bei GloryEvolution",
   "onboarding.title": "Sprich, und der Text erscheint am Cursor",
   "onboarding.intro":
-    "Drück in einer beliebigen App das Tastenkürzel, sprich und drück es erneut. Sayso erkennt deine Sprache, entfernt Ähs und Wiederholungen und tippt den geglätteten Text genau dort ein, wo du gerade arbeitest.",
+    "Drück in einer beliebigen App das Tastenkürzel, sprich und drück es erneut. GloryEvolution erkennt deine Sprache, entfernt Ähs und Wiederholungen und tippt den geglätteten Text genau dort ein, wo du gerade arbeitest.",
   "onboarding.step1.title": "OpenRouter-API-Schlüssel besorgen",
   "onboarding.step1.body":
     "Registriere dich bei openrouter.ai, lade etwas Guthaben auf (5 $ reichen meist monatelang) und erstelle einen Schlüssel.",
@@ -168,6 +168,7 @@ const de: Messages = {
   "settings.translateKey": "Kürzel",
   "settings.translateKeyHint": "Muss sich vom Aufnahmekürzel unterscheiden.",
   "settings.translateTarget": "Übersetzen in",
+  "app.name": "GloryEvolution",
 };
 
 export default de;

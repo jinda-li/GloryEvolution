@@ -9,10 +9,10 @@ const zhCN: Messages = {
   "titlebar.close": "关闭到托盘",
   "titlebar.closeHint": "关闭到托盘（快捷键仍可用）",
 
-  "onboarding.eyebrow": "欢迎使用 Sayso",
+  "onboarding.eyebrow": "欢迎使用光荣进化",
   "onboarding.title": "说话，文字就出现在光标处",
   "onboarding.intro":
-    "在任何应用里按下快捷键开始说话，再按一次结束。Sayso 会识别语音、去掉口头禅和重复，润色后直接输入到当前输入框。",
+    "在任何应用里按下快捷键开始说话，再按一次结束。光荣进化会识别语音、去掉口头禅和重复，润色后直接输入到当前输入框。",
   "onboarding.step1.title": "准备 OpenRouter API Key",
   "onboarding.step1.body": "在 openrouter.ai 注册并充值少量余额（$5 通常够用几个月），创建一个 Key。",
   "onboarding.step2.title": "粘贴 Key 并测试",
@@ -161,6 +161,7 @@ const zhCN: Messages = {
   "settings.translateKey": "快捷键",
   "settings.translateKeyHint": "不能和录音快捷键相同。",
   "settings.translateTarget": "翻译成",
+  "app.name": "光荣进化",
 };
 
 export default zhCN;

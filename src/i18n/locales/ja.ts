@@ -9,10 +9,10 @@ const ja: Messages = {
   "titlebar.close": "トレイに閉じる",
   "titlebar.closeHint": "トレイに閉じる（ショートカットは引き続き使えます）",
 
-  "onboarding.eyebrow": "Sayso へようこそ",
+  "onboarding.eyebrow": "GloryEvolution へようこそ",
   "onboarding.title": "話すだけで、カーソル位置に文字が入る",
   "onboarding.intro":
-    "どのアプリでもショートカットを押して話し、もう一度押すだけ。Sayso が音声を認識し、「えー」や言い直しを取り除いて、整えた文章を入力欄にそのまま入力します。",
+    "どのアプリでもショートカットを押して話し、もう一度押すだけ。GloryEvolution が音声を認識し、「えー」や言い直しを取り除いて、整えた文章を入力欄にそのまま入力します。",
   "onboarding.step1.title": "OpenRouter API キーを用意する",
   "onboarding.step1.body":
     "openrouter.ai に登録して少額をチャージし（$5 で数か月もつのが普通です）、キーを作成します。",
@@ -164,6 +164,7 @@ const ja: Messages = {
   "settings.translateKey": "ショートカット",
   "settings.translateKeyHint": "録音ショートカットとは別のキーにしてください。",
   "settings.translateTarget": "翻訳先",
+  "app.name": "GloryEvolution",
 };
 
 export default ja;

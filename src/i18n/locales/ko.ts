@@ -9,10 +9,10 @@ const ko: Messages = {
   "titlebar.close": "트레이로 닫기",
   "titlebar.closeHint": "트레이로 닫기(단축키는 계속 작동합니다)",
 
-  "onboarding.eyebrow": "Sayso에 오신 것을 환영합니다",
+  "onboarding.eyebrow": "GloryEvolution에 오신 것을 환영합니다",
   "onboarding.title": "말하면, 커서 위치에 글자가 입력됩니다",
   "onboarding.intro":
-    "어느 앱에서든 단축키를 누르고 말한 뒤 다시 누르세요. Sayso가 음성을 인식하고 군말과 반복을 걷어낸 다음, 다듬은 문장을 지금 쓰고 있는 입력란에 바로 입력합니다.",
+    "어느 앱에서든 단축키를 누르고 말한 뒤 다시 누르세요. GloryEvolution이 음성을 인식하고 군말과 반복을 걷어낸 다음, 다듬은 문장을 지금 쓰고 있는 입력란에 바로 입력합니다.",
   "onboarding.step1.title": "OpenRouter API 키 준비",
   "onboarding.step1.body": "openrouter.ai에 가입하고 소액을 충전한 뒤($5면 보통 몇 달 쓸 수 있습니다) 키를 만드세요.",
   "onboarding.step2.title": "키를 붙여넣고 테스트",
@@ -163,6 +163,7 @@ const ko: Messages = {
   "settings.translateKey": "단축키",
   "settings.translateKeyHint": "녹음 단축키와 달라야 합니다.",
   "settings.translateTarget": "번역할 언어",
+  "app.name": "GloryEvolution",
 };
 
 export default ko;

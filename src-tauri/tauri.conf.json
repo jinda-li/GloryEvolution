@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Sayso",
+  "productName": "GloryEvolution",
   "version": "0.3.0",
-  "identifier": "com.sayso.desktop",
+  "identifier": "com.gloryevolution.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Sayso",
+        "title": "GloryEvolution",
         "width": 1180,
         "height": 720,
         "minWidth": 920,
@@ -50,8 +50,8 @@
     "targets": ["nsis"],
     "publisher": "Jinda Li",
     "copyright": "Copyright (c) 2026 Jinda Li",
-    "homepage": "https://github.com/jinda-li/Sayso",
-    "shortDescription": "Sayso: voice typing for any app",
+    "homepage": "https://github.com/jinda-li/GloryEvolution",
+    "shortDescription": "GloryEvolution: voice typing for any app",
     "longDescription": "Press a hotkey, speak, and clean, polished text appears at your cursor in any app. Powered by OpenRouter.",
     "category": "Productivity",
     "windows": {
