@@ -14,7 +14,7 @@
 ![8 种语言](https://img.shields.io/badge/UI-8%20languages-e08a45)
 [![MIT 许可证](https://img.shields.io/github/license/jinda-li/GloryEvolution?color=2f8f7f)](LICENSE)
 
-<a href="https://github.com/jinda-li/GloryEvolution/releases/latest"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20Windows%20%E7%89%88-GloryEvolution%200.3.0-2f8f7f?style=for-the-badge&logo=windows&logoColor=white" alt="下载 Windows 版" height="44" /></a>
+<a href="https://github.com/jinda-li/GloryEvolution/releases/latest"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%20Windows%20%E7%89%88-GloryEvolution%200.4.0-2f8f7f?style=for-the-badge&logo=windows&logoColor=white" alt="下载 Windows 版" height="44" /></a>
 
 [English](README.md) · **简体中文**
 
@@ -90,7 +90,7 @@
 
 你需要一个自己的 OpenRouter 账户并充值少量余额。光荣进化本身免费。
 
-1. 从 [最新版本](https://github.com/jinda-li/GloryEvolution/releases/latest) **下载** `GloryEvolution_0.3.0_x64-setup.exe` 并运行，无需管理员权限。不想安装？下载便携版 `.zip`，解压即用。
+1. 从 [最新版本](https://github.com/jinda-li/GloryEvolution/releases/latest) **下载** `GloryEvolution_0.4.0_x64-setup.exe` 并运行，无需管理员权限。不想安装？下载便携版 `.zip`，解压即用。
 2. 在 [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) **创建 Key**，并充值几美元。
 3. 把 Key **粘贴**到光荣进化，点 **测试连接**，再点 **开始使用**。
 4. 点进任意输入框，按 **`Alt+Q`**，说话，再按一次。

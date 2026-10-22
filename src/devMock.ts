@@ -100,7 +100,7 @@ export function installDevMock() {
             systemPrompt: "…",
           };
         case "app_info":
-          return { version: "0.3.0", defaultSystemPrompt: "…" };
+          return { version: "0.4.0", defaultSystemPrompt: "…" };
         case "get_history":
           return {
             stats: { totalSeconds: 13_834, totalWords: 41_210, totalSessions: 1_142, daily: mockDaily(now) },

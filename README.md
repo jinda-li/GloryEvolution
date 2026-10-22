@@ -14,7 +14,7 @@ Free and open source (MIT). **Bring your own [OpenRouter](https://openrouter.ai)
 ![8 languages](https://img.shields.io/badge/UI-8%20languages-e08a45)
 [![MIT license](https://img.shields.io/github/license/jinda-li/GloryEvolution?color=2f8f7f)](LICENSE)
 
-<a href="https://github.com/jinda-li/GloryEvolution/releases/latest"><img src="https://img.shields.io/badge/Download%20for%20Windows-GloryEvolution%200.3.0-2f8f7f?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" height="44" /></a>
+<a href="https://github.com/jinda-li/GloryEvolution/releases/latest"><img src="https://img.shields.io/badge/Download%20for%20Windows-GloryEvolution%200.4.0-2f8f7f?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" height="44" /></a>
 
 **English** · [简体中文](README.zh-CN.md)
 
@@ -90,7 +90,7 @@ The interface is available in **English, 简体中文, 繁體中文, 日本語, 
 
 You need your own OpenRouter account with a little credit. GloryEvolution itself is free.
 
-1. **Download** `GloryEvolution_0.3.0_x64-setup.exe` from the [latest release](https://github.com/jinda-li/GloryEvolution/releases/latest) and run it. No admin rights needed. Prefer no installer? Grab the portable `.zip` instead.
+1. **Download** `GloryEvolution_0.4.0_x64-setup.exe` from the [latest release](https://github.com/jinda-li/GloryEvolution/releases/latest) and run it. No admin rights needed. Prefer no installer? Grab the portable `.zip` instead.
 2. **Create a key** at [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) and add a few dollars of credit.
 3. **Paste the key** into GloryEvolution, click **Test connection**, then **Get started**.
 4. Click into any text field and press **`Alt+Q`**. Talk. Press it again.
