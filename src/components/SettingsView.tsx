@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { SaveState } from "../App";
-import { LANGUAGES, LLM_MODELS, OPENROUTER_BASE_URL, STT_MODELS } from "../constants";
+import {
+  DEFAULT_TRANSLATE_SHORTCUT,
+  LANGUAGES,
+  LLM_MODELS,
+  OPENROUTER_BASE_URL,
+  STT_MODELS,
+  TRANSLATE_LANGUAGES,
+} from "../constants";
 import type { ModelOption } from "../constants";
 import type { AppSettings, RecordMode } from "../types";
 import { ApiKeyField } from "./ApiKeyField";
@@ -56,6 +63,37 @@ export function SettingsView({ settings, defaultSystemPrompt, saveState, onChang
             onChange={(mode) => set("recordMode", mode)}
           />
         </Row>
+      </Section>
+
+      <Section title="翻译">
+        <Row label="翻译快捷键" hint="用另一个快捷键说话，直接输出地道的目标语言，可以直接发送。">
+          <Toggle
+            checked={Boolean(settings.translateShortcut)}
+            onChange={(enabled) => set("translateShortcut", enabled ? DEFAULT_TRANSLATE_SHORTCUT : "")}
+          />
+        </Row>
+        {settings.translateShortcut ? (
+          <>
+            <Row label="快捷键" hint="不能和录音快捷键相同。">
+              <ShortcutInput
+                value={settings.translateShortcut}
+                onChange={(shortcut) => set("translateShortcut", shortcut)}
+              />
+            </Row>
+            <Row label="翻译成">
+              <select
+                value={settings.translateLanguage}
+                onChange={(event) => set("translateLanguage", event.target.value)}
+              >
+                {TRANSLATE_LANGUAGES.map((language) => (
+                  <option key={language.id} value={language.id}>
+                    {language.label}
+                  </option>
+                ))}
+              </select>
+            </Row>
+          </>
+        ) : null}
       </Section>
 
       <Section title="语音识别">

@@ -1,12 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Check, Copy, Loader2, X } from "lucide-react";
+import { Check, Copy, Loader2, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type {
   AppSettings,
   AudioLevelEvent,
   ProcessingProgressEvent,
+  RecorderHintEvent,
   RecordingEvent,
   RecordingStatus,
   TextPreviewEvent,
@@ -16,6 +17,7 @@ import { sounds } from "../utils/sound";
 
 const BAR_COUNT = 13;
 const ERROR_AUTO_HIDE_MS = 6000;
+const HINT_VISIBLE_MS = 3500;
 
 export function RecorderApp() {
   const [status, setStatus] = useState<RecordingStatus>("recording");
@@ -26,6 +28,8 @@ export function RecorderApp() {
   const [copied, setCopied] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [levels, setLevels] = useState<number[]>(() => Array(BAR_COUNT).fill(0));
+  const [hint, setHint] = useState("");
+  const hintTimer = useRef<number | undefined>(undefined);
   const soundEnabled = useRef(true);
   const startedAt = useRef(Date.now());
   const statusRef = useRef<RecordingStatus>("idle");
@@ -52,7 +56,7 @@ export function RecorderApp() {
           play(sounds.stop);
         } else if (next === "done") {
           play(sounds.done);
-        } else if (next === "error" && previous !== "error") {
+        } else if ((next === "error" || next === "failed") && previous !== next) {
           play(sounds.error);
         }
         statusRef.current = next;
@@ -65,7 +69,13 @@ export function RecorderApp() {
           setCopied(false);
           setProgress(0);
           setLevels(Array(BAR_COUNT).fill(0));
+          setHint("");
         }
+      }),
+      listen<RecorderHintEvent>("recorder-hint", (event) => {
+        setHint(event.payload.message);
+        window.clearTimeout(hintTimer.current);
+        hintTimer.current = window.setTimeout(() => setHint(""), HINT_VISIBLE_MS);
       }),
       listen<AudioLevelEvent>("audio-level", (event) => {
         const level = Math.max(0, Math.min(1, event.payload.level));
@@ -106,11 +116,17 @@ export function RecorderApp() {
   const isRecording = status === "recording";
   const isProcessing = status === "processing";
   const isError = status === "error";
+  // Processing failed but the audio is kept: stay open until retried or discarded.
+  const isFailed = status === "failed";
   const hasPreview = status === "preview" && Boolean(previewText);
 
   async function dismiss() {
     if (isRecording) {
       await invoke("cancel_recording");
+      return;
+    }
+    if (isFailed) {
+      await invoke("discard_failed");
       return;
     }
     await invoke("hide_recorder");
@@ -119,6 +135,10 @@ export function RecorderApp() {
   async function confirm() {
     if (isRecording) {
       await invoke("stop_and_process");
+      return;
+    }
+    if (isFailed) {
+      await invoke("retry_failed");
       return;
     }
     if (hasPreview) {
@@ -133,12 +153,24 @@ export function RecorderApp() {
   return (
     <div className="recorder-shell" data-tauri-drag-region>
       <div className={`recorder-pill ${status}`} title={message} data-tauri-drag-region>
-        <button className="pill-button ghost" type="button" onClick={() => void dismiss()} aria-label="取消" disabled={isProcessing}>
+        <button
+          className="pill-button ghost"
+          type="button"
+          onClick={() => void dismiss()}
+          aria-label={isFailed ? "放弃这段录音" : "取消"}
+          title={isFailed ? "放弃这段录音" : undefined}
+          disabled={isProcessing}
+        >
           <X size={16} />
         </button>
 
         <div className="pill-body" data-tauri-drag-region>
-          {isRecording ? (
+          {isRecording && hint ? (
+            <span className="pill-text hint" data-tauri-drag-region>
+              {hint}
+            </span>
+          ) : null}
+          {isRecording && !hint ? (
             <>
               <div className="wave" aria-label="正在录音" data-tauri-drag-region>
                 {levels.map((level, index) => (
@@ -166,6 +198,12 @@ export function RecorderApp() {
             </div>
           ) : null}
           {isError ? <span className="pill-text error-text">{message}</span> : null}
+          {isFailed ? (
+            <div className="pill-preview" data-tauri-drag-region>
+              <span className="pill-caption">识别失败，录音已保留，点右侧重试</span>
+              <span className="pill-text error-text">{message}</span>
+            </div>
+          ) : null}
           {status === "done" || status === "idle" ? <span className="pill-text">{message}</span> : null}
         </div>
 
@@ -173,10 +211,11 @@ export function RecorderApp() {
           className="pill-button primary"
           type="button"
           onClick={() => void confirm()}
-          aria-label={hasPreview ? "复制" : "完成"}
+          aria-label={hasPreview ? "复制" : isFailed ? "重试" : "完成"}
+          title={isFailed ? "重新识别这段录音" : undefined}
           disabled={isProcessing}
         >
-          {hasPreview && !copied ? <Copy size={15} /> : <Check size={16} />}
+          {isFailed ? <RotateCcw size={15} /> : hasPreview && !copied ? <Copy size={15} /> : <Check size={16} />}
         </button>
       </div>
     </div>

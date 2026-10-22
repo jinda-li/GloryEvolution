@@ -8,6 +8,8 @@ export type AppSettings = {
   polishEnabled: boolean;
   language: string;
   shortcut: string;
+  translateShortcut: string;
+  translateLanguage: string;
   recordMode: RecordMode;
   autoPaste: boolean;
   inputDevice: string;
@@ -19,10 +21,14 @@ export type AppSettings = {
   onboarded: boolean;
 };
 
-export type RecordingStatus = "idle" | "recording" | "processing" | "done" | "error" | "preview";
+export type RecordingStatus = "idle" | "recording" | "processing" | "done" | "error" | "failed" | "preview";
 
 export type RecordingEvent = {
   status: RecordingStatus;
+  message: string;
+};
+
+export type RecorderHintEvent = {
   message: string;
 };
 
@@ -62,12 +68,20 @@ export type HistoryEntry = {
   text: string;
   durationSeconds: number;
   polished: boolean;
+  translatedTo?: string;
 };
 
 export type UsageStats = {
   totalSeconds: number;
   totalWords: number;
   totalSessions: number;
+  daily: Record<string, DayStats>;
+};
+
+export type DayStats = {
+  words: number;
+  seconds: number;
+  sessions: number;
 };
 
 export type HistoryStore = {

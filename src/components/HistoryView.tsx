@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Check, Copy, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { TRANSLATE_LANGUAGES } from "../constants";
 import type { HistoryEntry, HistoryStore } from "../types";
 import { formatTime } from "../utils/format";
 
@@ -92,6 +93,7 @@ function HistoryItem({ entry, onDelete }: { entry: HistoryEntry; onDelete: () =>
       <div className="history-meta">
         <span>{formatTime(entry.createdAt)}</span>
         <span>{Math.round(entry.durationSeconds)} 秒</span>
+        {entry.translatedTo ? <span className="history-tag">翻译 · {languageLabel(entry.translatedTo)}</span> : null}
         {entry.polished && entry.rawText !== entry.text ? (
           <button type="button" className="link-button" onClick={() => setShowRaw((value) => !value)}>
             {showRaw ? "看润色结果" : "看识别原文"}
@@ -108,4 +110,8 @@ function HistoryItem({ entry, onDelete }: { entry: HistoryEntry; onDelete: () =>
       <p className={showRaw ? "raw" : ""}>{showRaw ? entry.rawText : entry.text}</p>
     </li>
   );
+}
+
+function languageLabel(code: string) {
+  return TRANSLATE_LANGUAGES.find((language) => language.id === code)?.label ?? code;
 }

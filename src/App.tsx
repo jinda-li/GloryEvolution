@@ -22,7 +22,7 @@ import type {
 export type SaveState = { kind: "idle" | "saving" | "saved" | "error"; message?: string };
 
 const EMPTY_HISTORY: HistoryStore = {
-  stats: { totalSeconds: 0, totalWords: 0, totalSessions: 0 },
+  stats: { totalSeconds: 0, totalWords: 0, totalSessions: 0, daily: {} },
   entries: [],
 };
 

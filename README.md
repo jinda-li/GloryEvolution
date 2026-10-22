@@ -12,7 +12,11 @@ Typical cost is well under $0.01 per minute of dictation. OpenRouter only serves
 ## Features
 
 - Global hotkey, either toggle (press to start, press again to finish) or hold-to-talk; `Esc` cancels
-- Types directly into the focused app; if there is no text field, a floating preview offers one-click copy
+- Types directly into the focused app (long text is pasted via the clipboard); if there is no text field, a floating preview offers one-click copy
+- Long dictation up to 20 minutes: audio is split at pauses and transcribed in parallel, the mic stream reconnects if the device drops, and a long take needs Esc twice to discard
+- If transcription fails, the audio stays in memory and the pill offers one-click retry (also in the tray menu)
+- Optional translate hotkey: speak in any language, get a ready-to-send message in the target language
+- Dictation insights: current and longest streak, active days and a 20-week heatmap
 - Personal dictionary for names and jargon
 - Choose speech and polish models, language, and microphone
 - Local history with search and copy, plus usage stats

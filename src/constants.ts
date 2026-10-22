@@ -40,6 +40,20 @@ export const LANGUAGES = [
   { id: "ru", label: "Русский" },
 ];
 
+export const TRANSLATE_LANGUAGES = [
+  { id: "en", label: "英文" },
+  { id: "zh", label: "简体中文" },
+  { id: "zh-TW", label: "繁体中文" },
+  { id: "ja", label: "日文" },
+  { id: "ko", label: "韩文" },
+  { id: "fr", label: "法文" },
+  { id: "de", label: "德文" },
+  { id: "es", label: "西班牙文" },
+  { id: "ru", label: "俄文" },
+];
+
+export const DEFAULT_TRANSLATE_SHORTCUT = "Alt+Shift+Q";
+
 export const DEFAULT_SETTINGS: AppSettings = {
   apiKey: "",
   baseUrl: OPENROUTER_BASE_URL,
@@ -48,6 +62,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   polishEnabled: true,
   language: "auto",
   shortcut: "Alt+Q",
+  translateShortcut: "",
+  translateLanguage: "en",
   recordMode: "toggle",
   autoPaste: true,
   inputDevice: "",

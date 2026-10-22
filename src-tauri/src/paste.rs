@@ -37,7 +37,7 @@ mod windows_input {
             Input::KeyboardAndMouse::{
                 GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
                 KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_CONTROL,
-                VK_LWIN, VK_MENU, VK_RETURN, VK_RWIN, VK_SHIFT,
+                VK_LWIN, VK_MENU, VK_RETURN, VK_RWIN, VK_SHIFT, VK_V,
             },
             WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId, IsWindowVisible},
         },
@@ -48,6 +48,11 @@ mod windows_input {
 
     /// SendInput batches beyond this size are occasionally truncated by busy targets.
     const CHUNK_UNITS: usize = 200;
+    /// Typing thousands of characters key by key is slow and busy apps drop
+    /// some of them, so long dictations go through the clipboard instead.
+    const PASTE_ABOVE_CHARS: usize = 400;
+    /// How long the target app gets to read the clipboard before it is restored.
+    const CLIPBOARD_RESTORE_DELAY: Duration = Duration::from_millis(1200);
 
     pub fn type_text(text: &str) -> AppResult<TextDelivery> {
         let foreground = unsafe { GetForegroundWindow() };
@@ -67,6 +72,9 @@ mod windows_input {
         wait_for_modifiers_released(Duration::from_millis(1500));
 
         let normalized = text.replace("\r\n", "\n");
+        if normalized.chars().count() > PASTE_ABOVE_CHARS {
+            return paste_via_clipboard(&normalized);
+        }
         let mut inputs = Vec::with_capacity(normalized.len() * 2);
         for ch in normalized.chars() {
             if ch == '\n' {
@@ -91,6 +99,32 @@ mod windows_input {
             }
             if inputs.len() > CHUNK_UNITS {
                 std::thread::sleep(Duration::from_millis(8));
+            }
+        }
+        Ok(TextDelivery::Inserted)
+    }
+
+    fn paste_via_clipboard(text: &str) -> AppResult<TextDelivery> {
+        let mut clipboard = arboard::Clipboard::new()?;
+        let previous = clipboard.get_text().ok();
+        clipboard.set_text(text.to_string())?;
+
+        let inputs = [
+            vk_input(VK_CONTROL, false),
+            vk_input(VK_V, false),
+            vk_input(VK_V, true),
+            vk_input(VK_CONTROL, true),
+        ];
+        let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+        if sent != inputs.len() as u32 {
+            return Ok(TextDelivery::NeedsCopy);
+        }
+
+        std::thread::sleep(CLIPBOARD_RESTORE_DELAY);
+        // Only restore if nothing else (including the user) replaced our text.
+        if let Some(previous) = previous {
+            if clipboard.get_text().ok().as_deref() == Some(text) {
+                let _ = clipboard.set_text(previous);
             }
         }
         Ok(TextDelivery::Inserted)

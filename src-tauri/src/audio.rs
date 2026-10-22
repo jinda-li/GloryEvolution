@@ -1,11 +1,12 @@
 use std::{
     io::Cursor,
     sync::{
-        mpsc::{self, Receiver, Sender},
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver, RecvTimeoutError, Sender},
         Arc, Mutex,
     },
     thread::JoinHandle,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use cpal::{
@@ -20,7 +21,27 @@ use crate::{AppError, AppResult};
 /// device's native 48 kHz stereo cuts the upload ~6x.
 pub const TARGET_SAMPLE_RATE: u32 = 16_000;
 
+/// Takes up to this long are sent as one request; longer ones are split so no
+/// single upload or transcript hits provider size, time or output-token limits.
+const MAX_SEGMENT_SECONDS: usize = 60;
+/// Cuts are placed at the quietest moment between these offsets into a segment.
+const MIN_CUT_SECONDS: usize = 35;
+const MAX_CUT_SECONDS: usize = 55;
+/// How often the capture thread checks whether the stream died.
+const STREAM_POLL: Duration = Duration::from_millis(250);
+
 pub type LevelCallback = Arc<dyn Fn(f32) + Send + Sync + 'static>;
+
+/// Lifecycle notices from the capture thread, for surfacing in the UI.
+#[derive(Debug, Clone, Copy)]
+pub enum CaptureNotice {
+    /// The input stream errored (device unplugged, Bluetooth profile switch, ...).
+    Interrupted,
+    /// A replacement stream is running and samples are flowing again.
+    Recovered,
+}
+
+pub type NoticeCallback = Arc<dyn Fn(CaptureNotice) + Send + Sync + 'static>;
 
 /// Owns the audio thread. `cpal::Stream` is not `Send` on every platform, so
 /// it lives and dies on its own thread and we talk to it over a channel.
@@ -36,7 +57,7 @@ struct Captured {
 }
 
 pub struct StoppedRecording {
-    pub wav: Vec<u8>,
+    pub samples: Vec<i16>,
     pub duration_seconds: f64,
     pub peak: f32,
 }
@@ -54,7 +75,7 @@ impl RecordingSession {
             .map_err(|_| AppError::Audio("录音线程异常退出。".to_string()))?;
         let duration_seconds = captured.samples.len() as f64 / TARGET_SAMPLE_RATE as f64;
         Ok(StoppedRecording {
-            wav: encode_wav(&captured.samples)?,
+            samples: captured.samples,
             duration_seconds,
             peak: captured.peak,
         })
@@ -68,14 +89,20 @@ pub fn list_input_devices() -> Vec<String> {
         .unwrap_or_default()
 }
 
-pub fn start(device_name: &str, level_callback: LevelCallback) -> AppResult<RecordingSession> {
+pub fn start(
+    device_name: &str,
+    level_callback: LevelCallback,
+    notice_callback: NoticeCallback,
+) -> AppResult<RecordingSession> {
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let (ready_tx, ready_rx) = mpsc::channel::<AppResult<()>>();
     let device_name = device_name.trim().to_string();
 
     let handle = std::thread::Builder::new()
         .name("audio-capture".to_string())
-        .spawn(move || run_capture(&device_name, level_callback, ready_tx, stop_rx))
+        .spawn(move || {
+            run_capture(&device_name, level_callback, notice_callback, ready_tx, stop_rx)
+        })
         .map_err(|error| AppError::Audio(format!("无法启动录音线程：{error}")))?;
 
     match ready_rx.recv() {
@@ -98,6 +125,7 @@ pub fn start(device_name: &str, level_callback: LevelCallback) -> AppResult<Reco
 fn run_capture(
     device_name: &str,
     level_callback: LevelCallback,
+    notice_callback: NoticeCallback,
     ready_tx: Sender<AppResult<()>>,
     stop_rx: Receiver<()>,
 ) -> Captured {
@@ -105,23 +133,53 @@ fn run_capture(
         samples: Vec::with_capacity(TARGET_SAMPLE_RATE as usize * 60),
         peak: 0.0,
     }));
+    let failed = Arc::new(AtomicBool::new(false));
 
-    let stream = match open_stream(device_name, shared.clone(), level_callback) {
-        Ok(stream) => stream,
+    let mut stream = match play_stream(device_name, &shared, &level_callback, &failed) {
+        Ok(stream) => Some(stream),
         Err(error) => {
             let _ = ready_tx.send(Err(error));
             return take(&shared);
         }
     };
-    if let Err(error) = stream.play() {
-        let _ = ready_tx.send(Err(error.into()));
-        return take(&shared);
-    }
     let _ = ready_tx.send(Ok(()));
 
-    let _ = stop_rx.recv();
+    // A dead stream used to end capture silently, so a long take kept only
+    // the audio before the glitch. Reopen it instead and keep appending.
+    loop {
+        match stop_rx.recv_timeout(STREAM_POLL) {
+            Ok(()) | Err(RecvTimeoutError::Disconnected) => break,
+            Err(RecvTimeoutError::Timeout) => {}
+        }
+        if !failed.swap(false, Ordering::SeqCst) {
+            continue;
+        }
+        if stream.take().is_some() {
+            notice_callback(CaptureNotice::Interrupted);
+        }
+        match play_stream(device_name, &shared, &level_callback, &failed) {
+            Ok(replacement) => {
+                stream = Some(replacement);
+                notice_callback(CaptureNotice::Recovered);
+            }
+            // Retry on the next poll; the device may still be re-enumerating.
+            Err(_) => failed.store(true, Ordering::SeqCst),
+        }
+    }
+
     drop(stream);
     take(&shared)
+}
+
+fn play_stream(
+    device_name: &str,
+    shared: &Arc<Mutex<Captured>>,
+    level_callback: &LevelCallback,
+    failed: &Arc<AtomicBool>,
+) -> AppResult<cpal::Stream> {
+    let stream = open_stream(device_name, shared.clone(), level_callback.clone(), failed.clone())?;
+    stream.play()?;
+    Ok(stream)
 }
 
 fn take(shared: &Arc<Mutex<Captured>>) -> Captured {
@@ -136,6 +194,7 @@ fn open_stream(
     device_name: &str,
     shared: Arc<Mutex<Captured>>,
     level_callback: LevelCallback,
+    failed: Arc<AtomicBool>,
 ) -> AppResult<cpal::Stream> {
     let host = cpal::default_host();
     let device = if device_name.is_empty() {
@@ -160,7 +219,7 @@ fn open_stream(
 
     macro_rules! build {
         ($t:ty) => {
-            build_stream::<$t>(&device, &config, shared, level_callback)
+            build_stream::<$t>(&device, &config, shared, level_callback, failed)
         };
     }
 
@@ -186,6 +245,7 @@ fn build_stream<T>(
     config: &StreamConfig,
     shared: Arc<Mutex<Captured>>,
     level_callback: LevelCallback,
+    failed: Arc<AtomicBool>,
 ) -> AppResult<cpal::Stream>
 where
     T: Sample + SizedSample,
@@ -223,7 +283,10 @@ where
             }
             level_callback((rms * 5.0).clamp(0.0, 1.0));
         },
-        |error| eprintln!("audio input stream error: {error}"),
+        move |error| {
+            eprintln!("audio input stream error: {error}");
+            failed.store(true, Ordering::SeqCst);
+        },
         None,
     )?;
 
@@ -279,7 +342,45 @@ impl Resampler {
     }
 }
 
-fn encode_wav(samples: &[i16]) -> AppResult<Vec<u8>> {
+/// Splits a take into transcription-sized pieces, cutting at pauses so no
+/// word is chopped in half.
+pub fn split_segments(samples: &[i16]) -> Vec<&[i16]> {
+    let rate = TARGET_SAMPLE_RATE as usize;
+    let mut segments = Vec::new();
+    let mut rest = samples;
+    while rest.len() > MAX_SEGMENT_SECONDS * rate {
+        let cut = quietest_point(rest, MIN_CUT_SECONDS * rate, MAX_CUT_SECONDS * rate);
+        let (head, tail) = rest.split_at(cut);
+        segments.push(head);
+        rest = tail;
+    }
+    if !rest.is_empty() || segments.is_empty() {
+        segments.push(rest);
+    }
+    segments
+}
+
+/// Centre of the lowest-energy 30 ms window in `samples[from..to]`.
+fn quietest_point(samples: &[i16], from: usize, to: usize) -> usize {
+    const WINDOW: usize = TARGET_SAMPLE_RATE as usize * 3 / 100;
+    const HOP: usize = TARGET_SAMPLE_RATE as usize / 100;
+    let to = to.min(samples.len().saturating_sub(WINDOW));
+    let mut best = (u64::MAX, to);
+    let mut start = from;
+    while start < to {
+        let energy = samples[start..start + WINDOW]
+            .iter()
+            .map(|s| (*s as i64 * *s as i64) as u64)
+            .sum::<u64>();
+        if energy < best.0 {
+            best = (energy, start + WINDOW / 2);
+        }
+        start += HOP;
+    }
+    best.1
+}
+
+pub fn encode_wav(samples: &[i16]) -> AppResult<Vec<u8>> {
     let spec = WavSpec {
         channels: 1,
         sample_rate: TARGET_SAMPLE_RATE,
@@ -311,6 +412,28 @@ mod tests {
             resampler.push(((i as f32) * 0.01).sin() * 0.5, &mut out);
         }
         assert!((out.len() as i64 - 16_000).abs() <= 1, "len {}", out.len());
+    }
+
+    #[test]
+    fn short_take_is_one_segment() {
+        let samples = vec![1i16; TARGET_SAMPLE_RATE as usize * 30];
+        assert_eq!(split_segments(&samples).len(), 1);
+        assert_eq!(split_segments(&[]).len(), 1);
+    }
+
+    #[test]
+    fn long_take_splits_at_pause_without_losing_samples() {
+        let rate = TARGET_SAMPLE_RATE as usize;
+        let mut samples = vec![8_000i16; rate * 150];
+        let pause = rate * 40;
+        samples[pause..pause + rate / 2].fill(0);
+
+        let segments = split_segments(&samples);
+        assert!(segments.len() >= 3);
+        assert!(segments.iter().all(|s| s.len() <= MAX_SEGMENT_SECONDS * rate));
+        assert_eq!(segments.iter().map(|s| s.len()).sum::<usize>(), samples.len());
+        let first = segments[0].len();
+        assert!(first >= pause && first <= pause + rate / 2, "cut at {first}");
     }
 
     #[test]

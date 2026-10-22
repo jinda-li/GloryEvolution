@@ -1,5 +1,7 @@
+use chrono::{Local, TimeZone};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeMap,
     fs,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
@@ -19,6 +21,9 @@ pub struct HistoryEntry {
     pub text: String,
     pub duration_seconds: f64,
     pub polished: bool,
+    /// Target language code when the entry came from the translate hotkey.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub translated_to: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -27,6 +32,17 @@ pub struct UsageStats {
     pub total_seconds: f64,
     pub total_words: u64,
     pub total_sessions: u64,
+    /// Per local calendar day ("YYYY-MM-DD"), for streaks and the activity heatmap.
+    /// Kept apart from `entries` so it survives the entry cap and disabled history.
+    pub daily: BTreeMap<String, DayStats>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DayStats {
+    pub words: u64,
+    pub seconds: f64,
+    pub sessions: u64,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -42,7 +58,24 @@ pub fn load(app: &AppHandle) -> AppResult<HistoryStore> {
         return Ok(HistoryStore::default());
     }
     let text = fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&text).unwrap_or_default())
+    let mut store: HistoryStore = serde_json::from_str(&text).unwrap_or_default();
+    if store.stats.daily.is_empty() {
+        // Stores written before daily stats existed: rebuild from kept entries.
+        for entry in &store.entries {
+            add_day(&mut store.stats, entry.created_at, count_words(&entry.text), entry.duration_seconds);
+        }
+    }
+    Ok(store)
+}
+
+fn add_day(stats: &mut UsageStats, at_millis: u64, words: usize, seconds: f64) {
+    let Some(at) = Local.timestamp_millis_opt(at_millis as i64).single() else {
+        return;
+    };
+    let day = stats.daily.entry(at.format("%Y-%m-%d").to_string()).or_default();
+    day.words += words as u64;
+    day.seconds += seconds;
+    day.sessions += 1;
 }
 
 fn save(app: &AppHandle, store: &HistoryStore) -> AppResult<()> {
@@ -63,22 +96,27 @@ pub fn record(
     text: &str,
     duration_seconds: f64,
     polished: bool,
+    translated_to: Option<&str>,
 ) -> AppResult<HistoryStore> {
     let mut store = load(app)?;
+    let words = count_words(text);
+    let created_at = now_millis();
     store.stats.total_seconds += duration_seconds;
-    store.stats.total_words += count_words(text) as u64;
+    store.stats.total_words += words as u64;
     store.stats.total_sessions += 1;
+    add_day(&mut store.stats, created_at, words, duration_seconds);
 
     if keep_entry {
         store.entries.insert(
             0,
             HistoryEntry {
                 id: uuid::Uuid::new_v4().to_string(),
-                created_at: now_millis(),
+                created_at,
                 raw_text: raw_text.to_string(),
                 text: text.to_string(),
                 duration_seconds,
                 polished,
+                translated_to: translated_to.map(str::to_string),
             },
         );
         store.entries.truncate(MAX_ENTRIES);

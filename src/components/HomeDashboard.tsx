@@ -1,6 +1,20 @@
 import { invoke } from "@tauri-apps/api/core";
-import { AlertTriangle, Check, Clock, Copy, Mic, Sparkles, Square, Timer, Type } from "lucide-react";
-import { useState } from "react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Check,
+  Clock,
+  Copy,
+  Flame,
+  Mic,
+  RotateCcw,
+  Sparkles,
+  Square,
+  Timer,
+  Trophy,
+  Type,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { SaveState } from "../App";
@@ -13,6 +27,7 @@ import type {
   UsageStats,
 } from "../types";
 import { estimateMinutesSaved, formatDuration } from "../utils/format";
+import { computeInsights } from "../utils/insights";
 import { ApiKeyField } from "./ApiKeyField";
 
 type HomeDashboardProps = {
@@ -118,6 +133,7 @@ function Dashboard({
   const isRecording = recordingStatus === "recording";
   const isProcessing = recordingStatus === "processing";
   const isError = recordingStatus === "error";
+  const isFailed = recordingStatus === "failed";
   const minutesSaved = estimateMinutesSaved(stats.totalWords, stats.totalSeconds);
   const latest = lastResult
     ? { raw: lastResult.rawText, text: lastResult.optimizedText }
@@ -167,6 +183,16 @@ function Dashboard({
           <span>{statusMessage}</span>
         </div>
       ) : null}
+      {isFailed ? (
+        <div className="notice danger">
+          <AlertTriangle size={16} />
+          <span>识别失败，录音已保留：{statusMessage}</span>
+          <button type="button" className="button ghost small" onClick={() => void invoke("retry_failed")}>
+            <RotateCcw size={14} />
+            重试
+          </button>
+        </div>
+      ) : null}
       {lastResult?.warning ? (
         <div className="notice warning">
           <AlertTriangle size={16} />
@@ -180,6 +206,8 @@ function Dashboard({
         <Stat icon={<Timer size={16} />} value={`${minutesSaved} 分钟`} label="估计节省打字时间" />
         <Stat icon={<Sparkles size={16} />} value={stats.totalSessions.toLocaleString()} label="语音输入次数" />
       </div>
+
+      <InsightsCard daily={stats.daily ?? {}} />
 
       <div className="card last-result">
         <div className="card-head">
@@ -217,6 +245,44 @@ function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: s
       <span className="stat-icon">{icon}</span>
       <strong>{value}</strong>
       <span className="muted small">{label}</span>
+    </div>
+  );
+}
+
+function InsightsCard({ daily }: { daily: UsageStats["daily"] }) {
+  const insights = useMemo(() => computeInsights(daily), [daily]);
+
+  return (
+    <div className="card insights">
+      <div className="card-head">
+        <h2>口述习惯</h2>
+      </div>
+      <div className="insights-body">
+        <div className="insights-figures">
+          <span>
+            <Flame size={15} /> 连续 <strong>{insights.currentStreak}</strong> 天
+          </span>
+          <span>
+            <Trophy size={15} /> 最长 <strong>{insights.longestStreak}</strong> 天
+          </span>
+          <span>
+            <CalendarDays size={15} /> 活跃 <strong>{insights.activeDays}</strong> 天
+          </span>
+        </div>
+        <div className="heatmap" role="img" aria-label={`最近 ${insights.weeks.length} 周的口述热力图`}>
+          {insights.weeks.map((week) => (
+            <div className="heatmap-week" key={week[0].key}>
+              {week.map((cell) => (
+                <span
+                  key={cell.key}
+                  className={`heatmap-cell level-${cell.level}${cell.future ? " future" : ""}`}
+                  title={cell.future ? undefined : `${cell.key}：${cell.words.toLocaleString()} 字`}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

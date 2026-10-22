@@ -32,7 +32,13 @@ use settings::RecordMode;
 type AppResult<T> = Result<T, AppError>;
 
 /// Recordings are capped so a forgotten session cannot run up an API bill.
-const MAX_RECORDING_SECONDS: u64 = 10 * 60;
+const MAX_RECORDING_SECONDS: u64 = 20 * 60;
+/// The pill warns this long before the cap stops the take.
+const LIMIT_WARNING_SECONDS: u64 = 60;
+/// Past this length, Esc must be pressed twice so a stray press elsewhere
+/// cannot throw away a long dictation.
+const CANCEL_CONFIRM_AFTER_SECONDS: f64 = 15.0;
+const CANCEL_CONFIRM_WINDOW: Duration = Duration::from_secs(2);
 const MIN_RECORDING_SECONDS: f64 = 0.4;
 /// RMS below this across the whole take means the mic heard nothing.
 const SILENCE_PEAK: f32 = 0.004;
@@ -46,6 +52,9 @@ pub enum AppError {
     Audio(String),
     #[error("{0}")]
     Api(String),
+    /// Processing failed but the audio was kept; the user can retry it.
+    #[error("{0}")]
+    Recoverable(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
@@ -75,26 +84,46 @@ impl serde::Serialize for AppError {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum DictationMode {
+    #[default]
+    Dictate,
+    Translate,
+}
+
+/// Audio of the last take whose processing failed, held in memory (never on
+/// disk) so a network hiccup does not cost the user a long dictation.
+struct FailedTake {
+    recording: audio::StoppedRecording,
+    mode: DictationMode,
+}
+
 struct AppState {
     recording: Mutex<Option<audio::RecordingSession>>,
+    session_mode: Mutex<DictationMode>,
     processing: AtomicBool,
     session_id: AtomicU64,
-    registered_shortcut: Mutex<Option<Shortcut>>,
+    registered_shortcuts: Mutex<Vec<Shortcut>>,
     cancel_shortcut_active: AtomicBool,
+    cancel_armed_at: Mutex<Option<Instant>>,
     last_shortcut_toggle: Mutex<Instant>,
     shortcut_capture_mode: AtomicBool,
+    failed_take: Mutex<Option<FailedTake>>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
             recording: Mutex::new(None),
+            session_mode: Mutex::new(DictationMode::Dictate),
             processing: AtomicBool::new(false),
             session_id: AtomicU64::new(0),
-            registered_shortcut: Mutex::new(None),
+            registered_shortcuts: Mutex::new(Vec::new()),
             cancel_shortcut_active: AtomicBool::new(false),
+            cancel_armed_at: Mutex::new(None),
             last_shortcut_toggle: Mutex::new(Instant::now() - Duration::from_secs(1)),
             shortcut_capture_mode: AtomicBool::new(false),
+            failed_take: Mutex::new(None),
         }
     }
 }
@@ -145,6 +174,12 @@ struct LatencyMetricsEvent {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct RecorderHintEvent {
+    message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TextPreviewEvent {
     text: String,
 }
@@ -171,10 +206,11 @@ fn save_settings(
     state: State<'_, AppState>,
     new_settings: settings::AppSettings,
 ) -> AppResult<()> {
-    // Validate the shortcut before persisting so a typo cannot brick the hotkey.
-    Shortcut::from_str(new_settings.shortcut.trim()).map_err(|error| {
-        AppError::Config(format!("无效的快捷键 \"{}\"：{error}", new_settings.shortcut))
-    })?;
+    // Validate shortcuts before persisting so a typo cannot brick the hotkey.
+    let shortcuts = parse_shortcuts(&new_settings)?;
+    if shortcuts.translate.is_some() && shortcuts.translate == Some(shortcuts.dictate) {
+        return Err(AppError::Config("翻译快捷键不能和听写快捷键相同。".to_string()));
+    }
     settings::save(&app, &new_settings)?;
     register_shortcut_from_settings(&app, state.inner())?;
     apply_autostart(&app, new_settings.launch_at_login);
@@ -236,7 +272,7 @@ fn set_shortcut_capture_mode(state: State<'_, AppState>, capturing: bool) {
 
 #[tauri::command]
 fn start_recording(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
-    start_recording_inner(&app, state.inner())
+    start_recording_inner(&app, state.inner(), DictationMode::Dictate)
 }
 
 #[tauri::command]
@@ -251,7 +287,20 @@ fn cancel_recording(app: AppHandle, state: State<'_, AppState>) -> AppResult<()>
 
 #[tauri::command]
 async fn toggle_recording(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
-    toggle_recording_inner(&app, state.inner()).await
+    toggle_recording_inner(&app, state.inner(), DictationMode::Dictate).await
+}
+
+#[tauri::command]
+async fn retry_failed(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
+    retry_failed_inner(&app, state.inner()).await
+}
+
+#[tauri::command]
+fn discard_failed(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
+    if let Ok(mut failed) = state.failed_take.lock() {
+        *failed = None;
+    }
+    hide_recorder_window(&app)
 }
 
 #[tauri::command]
@@ -271,7 +320,7 @@ fn is_recording(state: &AppState) -> bool {
         .unwrap_or(false)
 }
 
-fn start_recording_inner(app: &AppHandle, state: &AppState) -> AppResult<()> {
+fn start_recording_inner(app: &AppHandle, state: &AppState, mode: DictationMode) -> AppResult<()> {
     if state.processing.load(Ordering::SeqCst) {
         return Ok(());
     }
@@ -293,6 +342,7 @@ fn start_recording_inner(app: &AppHandle, state: &AppState) -> AppResult<()> {
     }
 
     let app_for_level = app.clone();
+    let app_for_notice = app.clone();
     let last_emit = Mutex::new(Instant::now() - Duration::from_millis(100));
     let session = audio::start(
         &settings.input_device,
@@ -304,27 +354,56 @@ fn start_recording_inner(app: &AppHandle, state: &AppState) -> AppResult<()> {
                 }
             }
         }),
+        std::sync::Arc::new(move |notice| {
+            let message = match notice {
+                audio::CaptureNotice::Interrupted => "麦克风中断，正在重新连接…",
+                audio::CaptureNotice::Recovered => "麦克风已恢复，继续录音。",
+            };
+            emit_hint(&app_for_notice, message);
+        }),
     )?;
     *recording = Some(session);
     drop(recording);
+    if let Ok(mut session_mode) = state.session_mode.lock() {
+        *session_mode = mode;
+    }
+    if let Ok(mut armed) = state.cancel_armed_at.lock() {
+        *armed = None;
+    }
 
     let session_id = state.session_id.fetch_add(1, Ordering::SeqCst) + 1;
     set_cancel_shortcut(app, state, true);
     show_recorder_window(app)?;
     let hint = match settings.record_mode {
-        RecordMode::Toggle => "正在聆听，再按一次快捷键结束，Esc 取消。",
-        RecordMode::Hold => "正在聆听，松开快捷键结束，Esc 取消。",
+        RecordMode::Toggle => "再按一次快捷键结束，Esc 取消。",
+        RecordMode::Hold => "松开快捷键结束，Esc 取消。",
     };
-    emit_recording(app, "recording", hint);
+    let hint = match mode {
+        DictationMode::Dictate => format!("正在聆听，{hint}"),
+        DictationMode::Translate => format!(
+            "正在聆听（翻译为{}），{hint}",
+            optimizer::language_name(&settings.translate_language)
+        ),
+    };
+    emit_recording(app, "recording", &hint);
     spawn_recording_watchdog(app.clone(), session_id);
     Ok(())
 }
 
 fn spawn_recording_watchdog(app: AppHandle, session_id: u64) {
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(MAX_RECORDING_SECONDS)).await;
-        let state = app.state::<AppState>();
-        if state.session_id.load(Ordering::SeqCst) == session_id && is_recording(state.inner()) {
+        let still_running = |app: &AppHandle| {
+            let state = app.state::<AppState>();
+            state.session_id.load(Ordering::SeqCst) == session_id && is_recording(state.inner())
+        };
+        tokio::time::sleep(Duration::from_secs(MAX_RECORDING_SECONDS - LIMIT_WARNING_SECONDS)).await;
+        if !still_running(&app) {
+            return;
+        }
+        emit_hint(&app, "还剩 1 分钟，到时会自动结束并识别。");
+        tokio::time::sleep(Duration::from_secs(LIMIT_WARNING_SECONDS)).await;
+        if still_running(&app) {
+            let state = app.state::<AppState>();
             let _ = stop_and_process_inner(&app, state.inner()).await;
         }
     });
@@ -343,24 +422,32 @@ async fn stop_and_process_inner(app: &AppHandle, state: &AppState) -> AppResult<
         return Ok(());
     };
     set_cancel_shortcut(app, state, false);
+    let mode = state.session_mode.lock().map(|mode| *mode).unwrap_or_default();
 
-    let result = process_session(app, session).await;
+    let result = process_session(app, state, session, mode).await;
     state.processing.store(false, Ordering::SeqCst);
-
-    if let Err(error) = &result {
-        emit_recording(app, "error", &error.to_string());
-    }
+    report_failure(app, &result);
     result.map(|_| ())
+}
+
+fn report_failure<T>(app: &AppHandle, result: &AppResult<T>) {
+    match result {
+        // "failed" keeps the pill open with a retry button instead of fading out.
+        Err(error @ AppError::Recoverable(_)) => emit_recording(app, "failed", &error.to_string()),
+        Err(error) => emit_recording(app, "error", &error.to_string()),
+        Ok(_) => {}
+    }
 }
 
 /// Returns `None` when the take was too short to be worth transcribing.
 async fn process_session(
     app: &AppHandle,
+    state: &AppState,
     session: audio::RecordingSession,
+    mode: DictationMode,
 ) -> AppResult<Option<ProcessResult>> {
     emit_recording(app, "processing", "正在识别…");
     emit_progress(app, "stopping", "准备音频", 0.1);
-    let total_start = Instant::now();
     let too_short = session.elapsed_seconds() < MIN_RECORDING_SECONDS;
     let stopped = tauri::async_runtime::spawn_blocking(move || session.stop())
         .await
@@ -377,19 +464,82 @@ async fn process_session(
         ));
     }
 
+    transcribe_and_deliver(app, state, stopped, mode).await.map(Some)
+}
+
+async fn retry_failed_inner(app: &AppHandle, state: &AppState) -> AppResult<()> {
+    if is_recording(state) || state.processing.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    let failed = state.failed_take.lock().ok().and_then(|mut failed| failed.take());
+    let Some(failed) = failed else {
+        state.processing.store(false, Ordering::SeqCst);
+        return Err(AppError::Config("没有需要重试的录音。".to_string()));
+    };
+
+    let result = async {
+        show_recorder_window(app)?;
+        emit_recording(app, "processing", "正在重新识别…");
+        transcribe_and_deliver(app, state, failed.recording, failed.mode).await
+    }
+    .await;
+    state.processing.store(false, Ordering::SeqCst);
+    report_failure(app, &result);
+    result.map(|_| ())
+}
+
+async fn transcribe_and_deliver(
+    app: &AppHandle,
+    state: &AppState,
+    recording: audio::StoppedRecording,
+    mode: DictationMode,
+) -> AppResult<ProcessResult> {
+    let total_start = Instant::now();
     let settings = settings::load(app)?;
 
     emit_progress(app, "stt", "语音识别", 0.3);
     let stt_start = Instant::now();
-    let raw_text = stt::transcribe(stopped.wav, &settings).await?;
+    let transcribed = stt::transcribe(&recording.samples, &settings, |done, total| {
+        if total > 1 {
+            let progress = 0.3 + 0.3 * done as f32 / total as f32;
+            emit_progress(app, "stt", &format!("语音识别 {done}/{total}"), progress);
+        }
+    })
+    .await;
+    let raw_text = match transcribed {
+        Ok(text) => text,
+        Err(error) => {
+            let message = error.to_string();
+            if let Ok(mut failed) = state.failed_take.lock() {
+                *failed = Some(FailedTake { recording, mode });
+            }
+            return Err(AppError::Recoverable(message));
+        }
+    };
     let stt_ms = stt_start.elapsed().as_millis();
+    let duration_seconds = recording.duration_seconds;
+    drop(recording);
 
     let human_text = text_filter::clean_human_speech_text(&raw_text, settings.language.trim())?;
 
     let optimize_start = Instant::now();
     let mut warning = None;
     let mut polished = false;
-    let final_text = if settings.polish_enabled && !settings.llm_model.trim().is_empty() {
+    let translated_to = (mode == DictationMode::Translate).then(|| settings.translate_language.trim().to_string());
+    let final_text = if let Some(target) = &translated_to {
+        emit_progress(app, "optimize", "翻译", 0.65);
+        match optimizer::translate(&human_text, target, &settings).await {
+            Ok(text) if !text.trim().is_empty() => {
+                polished = true;
+                text
+            }
+            Ok(_) => human_text.clone(),
+            Err(error) => {
+                warning = Some(format!("翻译失败，已输出原始识别：{error}"));
+                human_text.clone()
+            }
+        }
+    } else if settings.polish_enabled && !settings.llm_model.trim().is_empty() {
         emit_progress(app, "optimize", "智能润色", 0.65);
         match optimizer::optimize(&human_text, &settings).await {
             Ok(text) if !text.trim().is_empty() => {
@@ -408,6 +558,19 @@ async fn process_session(
     };
     let optimize_ms = optimize_start.elapsed().as_millis();
 
+    // Saved before typing so the text survives even if delivery goes wrong.
+    if let Ok(store) = history::record(
+        app,
+        settings.history_enabled,
+        &human_text,
+        &final_text,
+        duration_seconds,
+        polished,
+        translated_to.as_deref(),
+    ) {
+        let _ = app.emit("history-updated", &store);
+    }
+
     emit_progress(app, "paste", "输出文本", 0.92);
     let paste_start = Instant::now();
     let delivery = {
@@ -415,7 +578,9 @@ async fn process_session(
         let text = final_text.clone();
         tauri::async_runtime::spawn_blocking(move || paste::deliver_text(&settings, &text))
             .await
-            .map_err(|error| AppError::Audio(error.to_string()))??
+            .map_err(|error| AppError::Audio(error.to_string()))?
+            // Typing failed outright: fall back to the copy preview.
+            .unwrap_or(paste::TextDelivery::NeedsCopy)
     };
     let paste_ms = paste_start.elapsed().as_millis();
 
@@ -433,21 +598,10 @@ async fn process_session(
     };
     emit_progress(app, "done", "完成", 1.0);
 
-    if let Ok(store) = history::record(
-        app,
-        settings.history_enabled,
-        &human_text,
-        &final_text,
-        stopped.duration_seconds,
-        polished,
-    ) {
-        let _ = app.emit("history-updated", &store);
-    }
-
     let result = ProcessResult {
         raw_text: human_text,
         optimized_text: final_text,
-        duration_seconds: stopped.duration_seconds,
+        duration_seconds,
         delivery: delivery_label,
         warning,
     };
@@ -461,7 +615,7 @@ async fn process_session(
             paste_ms,
         },
     );
-    Ok(Some(result))
+    Ok(result)
 }
 
 fn cancel_recording_inner(app: &AppHandle, state: &AppState) -> AppResult<()> {
@@ -483,12 +637,36 @@ fn cancel_recording_inner(app: &AppHandle, state: &AppState) -> AppResult<()> {
     Ok(())
 }
 
-async fn toggle_recording_inner(app: &AppHandle, state: &AppState) -> AppResult<()> {
+async fn toggle_recording_inner(app: &AppHandle, state: &AppState, mode: DictationMode) -> AppResult<()> {
     if is_recording(state) {
         stop_and_process_inner(app, state).await
     } else {
-        start_recording_inner(app, state)
+        start_recording_inner(app, state, mode)
     }
+}
+
+/// Esc is global while recording, so a press meant for another app could
+/// silently discard minutes of speech. Long takes need a second press.
+fn confirm_cancel(app: &AppHandle, state: &AppState) -> bool {
+    let elapsed = state
+        .recording
+        .lock()
+        .ok()
+        .and_then(|recording| recording.as_ref().map(|session| session.elapsed_seconds()))
+        .unwrap_or(0.0);
+    if elapsed < CANCEL_CONFIRM_AFTER_SECONDS {
+        return true;
+    }
+    let Ok(mut armed) = state.cancel_armed_at.lock() else {
+        return true;
+    };
+    if armed.is_some_and(|at| at.elapsed() < CANCEL_CONFIRM_WINDOW) {
+        *armed = None;
+        return true;
+    }
+    *armed = Some(Instant::now());
+    emit_hint(app, "再按一次 Esc 放弃这段录音");
+    false
 }
 
 // ---------------------------------------------------------------------------
@@ -502,17 +680,25 @@ fn handle_global_shortcut(app: &AppHandle, shortcut: &Shortcut, pressed: bool) {
     }
 
     if *shortcut == cancel_shortcut() {
-        if pressed && state.cancel_shortcut_active.load(Ordering::SeqCst) {
+        if pressed
+            && state.cancel_shortcut_active.load(Ordering::SeqCst)
+            && confirm_cancel(app, state.inner())
+        {
             let _ = cancel_recording_inner(app, state.inner());
         }
         return;
     }
 
-    let mode = settings::load(app)
-        .map(|settings| settings.record_mode)
-        .unwrap_or_default();
+    let settings = settings::load(app).unwrap_or_default();
+    let dictation_mode = match parse_shortcuts(&settings) {
+        Ok(ParsedShortcuts {
+            translate: Some(translate),
+            ..
+        }) if translate == *shortcut => DictationMode::Translate,
+        _ => DictationMode::Dictate,
+    };
 
-    let action = match (mode, pressed) {
+    let action = match (settings.record_mode, pressed) {
         (RecordMode::Toggle, true) => {
             if let Ok(mut last_toggle) = state.last_shortcut_toggle.lock() {
                 if last_toggle.elapsed() < Duration::from_millis(300) {
@@ -531,19 +717,19 @@ fn handle_global_shortcut(app: &AppHandle, shortcut: &Shortcut, pressed: bool) {
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
         let result = match action {
-            ShortcutAction::Toggle => toggle_recording_inner(&app, state.inner()).await,
+            ShortcutAction::Toggle => {
+                toggle_recording_inner(&app, state.inner(), dictation_mode).await
+            }
             ShortcutAction::Start => {
                 if is_recording(state.inner()) {
                     Ok(())
                 } else {
-                    start_recording_inner(&app, state.inner())
+                    start_recording_inner(&app, state.inner(), dictation_mode)
                 }
             }
             ShortcutAction::Stop => stop_and_process_inner(&app, state.inner()).await,
         };
-        if let Err(error) = result {
-            emit_recording(&app, "error", &error.to_string());
-        }
+        report_failure(&app, &result);
     });
 }
 
@@ -568,32 +754,62 @@ fn set_cancel_shortcut(app: &AppHandle, state: &AppState, active: bool) {
     }
 }
 
+struct ParsedShortcuts {
+    dictate: Shortcut,
+    translate: Option<Shortcut>,
+}
+
+fn parse_shortcuts(settings: &settings::AppSettings) -> AppResult<ParsedShortcuts> {
+    let parse = |text: &str| {
+        Shortcut::from_str(text.trim())
+            .map_err(|error| AppError::Config(format!("无效的快捷键 \"{text}\"：{error}")))
+    };
+    let translate = settings.translate_shortcut.trim();
+    Ok(ParsedShortcuts {
+        dictate: parse(&settings.shortcut)?,
+        translate: if translate.is_empty() {
+            None
+        } else {
+            Some(parse(translate)?)
+        },
+    })
+}
+
 fn register_shortcut_from_settings(app: &AppHandle, state: &AppState) -> AppResult<()> {
     let settings = settings::load(app)?;
-    let shortcut = Shortcut::from_str(settings.shortcut.trim()).map_err(|error| {
-        AppError::Config(format!("无效的快捷键 \"{}\"：{error}", settings.shortcut))
-    })?;
+    let parsed = parse_shortcuts(&settings)?;
+    let wanted: Vec<Shortcut> = std::iter::once(parsed.dictate).chain(parsed.translate).collect();
 
     let mut registered = state
-        .registered_shortcut
+        .registered_shortcuts
         .lock()
         .map_err(|_| AppError::Config("快捷键状态锁定失败。".to_string()))?;
 
-    if registered.as_ref() == Some(&shortcut) {
+    if *registered == wanted {
         return Ok(());
     }
 
-    if let Some(previous) = registered.take() {
+    for previous in registered.drain(..) {
         let _ = app.global_shortcut().unregister(previous);
     }
 
-    app.global_shortcut().register(shortcut).map_err(|error| {
+    app.global_shortcut().register(parsed.dictate).map_err(|error| {
         AppError::Config(format!(
             "快捷键 {} 注册失败，可能已被其他程序占用：{error}",
             settings.shortcut
         ))
     })?;
-    *registered = Some(shortcut);
+    registered.push(parsed.dictate);
+
+    if let Some(translate) = parsed.translate {
+        app.global_shortcut().register(translate).map_err(|error| {
+            AppError::Config(format!(
+                "翻译快捷键 {} 注册失败，可能已被其他程序占用：{error}",
+                settings.translate_shortcut
+            ))
+        })?;
+        registered.push(translate);
+    }
     Ok(())
 }
 
@@ -668,6 +884,8 @@ pub fn run() {
             stop_and_process,
             cancel_recording,
             toggle_recording,
+            retry_failed,
+            discard_failed,
             hide_recorder
         ])
         .run(tauri::generate_context!())
@@ -677,9 +895,10 @@ pub fn run() {
 fn setup_tray(app: &AppHandle) -> AppResult<()> {
     let show = MenuItem::with_id(app, "show", "打开主界面", true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", "开始 / 结束录音", true, None::<&str>)?;
+    let retry = MenuItem::with_id(app, "retry", "重试上次失败的录音", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &toggle, &separator, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &toggle, &retry, &separator, &quit])?;
     let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?;
 
     TrayIconBuilder::with_id("glorious-evolution")
@@ -693,8 +912,18 @@ fn setup_tray(app: &AppHandle) -> AppResult<()> {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
                     let state = app.state::<AppState>();
-                    if let Err(error) = toggle_recording_inner(&app, state.inner()).await {
-                        emit_recording(&app, "error", &error.to_string());
+                    let result =
+                        toggle_recording_inner(&app, state.inner(), DictationMode::Dictate).await;
+                    report_failure(&app, &result);
+                });
+            }
+            "retry" => {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = app.state::<AppState>();
+                    if let Err(AppError::Config(message)) = retry_failed_inner(&app, state.inner()).await {
+                        let _ = show_recorder_window(&app);
+                        emit_recording(&app, "error", &message);
                     }
                 });
             }
@@ -777,6 +1006,15 @@ fn emit_progress(app: &AppHandle, phase: &'static str, message: &str, progress: 
             phase,
             message: message.to_string(),
             progress,
+        },
+    );
+}
+
+fn emit_hint(app: &AppHandle, message: &str) {
+    let _ = app.emit(
+        "recorder-hint",
+        RecorderHintEvent {
+            message: message.to_string(),
         },
     );
 }

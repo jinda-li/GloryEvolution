@@ -26,6 +26,9 @@ pub struct AppSettings {
     pub polish_enabled: bool,
     pub language: String,
     pub shortcut: String,
+    /// Second hotkey that dictates and outputs in `translate_language`; empty disables it.
+    pub translate_shortcut: String,
+    pub translate_language: String,
     pub record_mode: RecordMode,
     pub auto_paste: bool,
     pub input_device: String,
@@ -47,6 +50,8 @@ impl Default for AppSettings {
             polish_enabled: true,
             language: "auto".to_string(),
             shortcut: "Alt+Q".to_string(),
+            translate_shortcut: String::new(),
+            translate_language: "en".to_string(),
             record_mode: RecordMode::Toggle,
             auto_paste: true,
             input_device: String::new(),
